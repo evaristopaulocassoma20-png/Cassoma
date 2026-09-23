@@ -1,0 +1,6 @@
+{
+  "name": "KwanzaPay",
+  "description": "Gateway de pagamentos para Angola: Todos os pagamentos de Angola (Multicaixa Express, Referência, Débito Direto, UNITEL Money) numa única API.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

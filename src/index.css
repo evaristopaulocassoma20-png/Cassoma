@@ -1,0 +1,112 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --background: #f8fafc;
+    --foreground: #0f172a;
+    --card: #ffffff;
+    --card-foreground: #0f172a;
+    --primary: #059669;
+    --primary-foreground: #ffffff;
+    --secondary: #f1f5f9;
+    --secondary-foreground: #1e293b;
+    --muted: #f8fafc;
+    --muted-foreground: #64748b;
+    --accent: #ecfdf5;
+    --accent-foreground: #065f46;
+    --destructive: #ef4444;
+    --destructive-foreground: #ffffff;
+    --border: #e2e8f0;
+    --input: #e2e8f0;
+    --ring: #059669;
+    --ink: #0a0f1d;
+    --ink-foreground: #f8fafc;
+    --lime: #84cc16;
+    --lime-foreground: #0a0f1d;
+  }
+}
+
+.bg-background { background-color: var(--background); }
+.text-foreground { color: var(--foreground); }
+.bg-card { background-color: var(--card); }
+.text-card-foreground { color: var(--card-foreground); }
+.bg-primary { background-color: var(--primary); }
+.text-primary { color: var(--primary); }
+.text-primary-foreground { color: var(--primary-foreground); }
+.bg-secondary { background-color: var(--secondary); }
+.text-secondary-foreground { color: var(--secondary-foreground); }
+.bg-muted { background-color: var(--muted); }
+.text-muted-foreground { color: var(--muted-foreground); }
+.bg-accent { background-color: var(--accent); }
+.text-accent-foreground { color: var(--accent-foreground); }
+.border-border { border-color: var(--border); }
+.bg-ink { background-color: var(--ink); }
+.text-ink-foreground { color: var(--ink-foreground); }
+.bg-lime { background-color: var(--lime); }
+.text-lime { color: var(--lime); }
+.text-lime-foreground { color: var(--lime-foreground); }
+.border-lime\/30 { border-color: rgba(132, 204, 22, 0.3); }
+.bg-lime\/10 { background-color: rgba(132, 204, 22, 0.1); }
+.bg-lime\/50 { background-color: rgba(132, 204, 22, 0.5); }
+.text-lime\/90 { color: rgba(132, 204, 22, 0.9); }
+.border-ink-foreground\/10 { border-color: rgba(248, 250, 252, 0.1); }
+.border-ink-foreground\/20 { border-color: rgba(248, 250, 252, 0.2); }
+.bg-ink-foreground\/10 { background-color: rgba(248, 250, 252, 0.1); }
+.text-ink-foreground\/40 { color: rgba(248, 250, 252, 0.4); }
+.text-ink-foreground\/50 { color: rgba(248, 250, 252, 0.5); }
+.text-ink-foreground\/60 { color: rgba(248, 250, 252, 0.6); }
+.text-ink-foreground\/70 { color: rgba(248, 250, 252, 0.7); }
+.text-ink-foreground\/75 { color: rgba(248, 250, 252, 0.75); }
+.text-ink-foreground\/80 { color: rgba(248, 250, 252, 0.8); }
+.text-ink-foreground\/90 { color: rgba(248, 250, 252, 0.9); }
+.bg-primary\/5 { background-color: rgba(5, 150, 105, 0.05); }
+.bg-primary\/10 { background-color: rgba(5, 150, 105, 0.1); }
+.border-primary\/30 { border-color: rgba(5, 150, 105, 0.3); }
+.border-primary\/40 { border-color: rgba(5, 150, 105, 0.4); }
+.text-primary\/20 { color: rgba(5, 150, 105, 0.2); }
+.text-primary\/40 { color: rgba(5, 150, 105, 0.4); }
+
+.font-display {
+  font-family: 'Space Grotesk', system-ui, -apple-system, sans-serif;
+}
+
+.font-sans {
+  font-family: 'Instrument Sans', system-ui, -apple-system, sans-serif;
+}
+
+.font-mono-code {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+@keyframes marquee {
+  0% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-marquee {
+  display: flex;
+  width: max-content;
+  animation: marquee 26s linear infinite;
+}
+
+.animate-marquee:hover {
+  animation-play-state: paused;
+}
+
+@keyframes floatSlow {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+.animate-float-slow {
+  animation: floatSlow 6s ease-in-out infinite;
+}
+

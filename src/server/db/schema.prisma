@@ -1,0 +1,211 @@
+// Prisma Schema for KwanzaPay P2P Core Engine & Escrow System
+// Conforme Blueprint de Engenharia Consolidado
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  USER
+  LPS       // Liquidity Provider / Provedor de Liquidez
+  MERCHANT  // Loja / Parceiro E-commerce
+  ADMIN
+}
+
+enum PaymentMethod {
+  MULTICAIXA_EXPRESS
+  TRANSFERENCIA_BANCARIA
+  REFERENCIA
+  UNITEL_MONEY
+  USDT_TRC20
+  INTERNAL_BALANCE
+}
+
+enum TransactionStatus {
+  PENDING_AUTH              // Criado pela loja, aguardando login/escolha do cliente
+  PENDING_USER_TRANSFER     // Cliente escolheu LPS; 300s para transferir
+  GUARANTEE_LOCKED          // Saldo de garantia do LPS bloqueado na custódia
+  PENDING_LPS_VERIFICATION  // Cliente informou NUP; LPS tem 300s para validar
+  COMPLETED                 // Pagamento liquidado e concluído
+  EXPIRED                   // Tempo excedido; garantia devolvida
+  DISPUTED                  // Disputa aberta; garantia congelada em Escrow
+  CANCELLED                 // Cancelado
+}
+
+enum DepositStatus {
+  PENDING
+  CONFIRMED
+  REJECTED
+}
+
+enum LpsStatus {
+  ACTIVE
+  PAUSED
+  SUSPENDED
+}
+
+// 1. Tabela de Lojas Parceiras (Merchants)
+model PartnerMerchant {
+  id              String    @id @default(uuid())
+  partnerId       String    @unique @map("partner_id")
+  name            String
+  secretKey       String    @map("secret_key") // Usada no HMAC-SHA256
+  notifyUrl       String    @map("notify_url")
+  returnUrl       String    @map("return_url")
+  balance         Decimal   @default(0.00) @db.Decimal(18, 2)
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  transactions    PaymentTransaction[]
+
+  @@map("partner_merchants")
+}
+
+// 2. Usuários / Clientes Compradores
+model User {
+  id                      String    @id @default(uuid())
+  email                   String    @unique
+  googleId                String?   @unique @map("google_id")
+  name                    String
+  role                    Role      @default(USER)
+  avatarUrl               String?   @map("avatar_url")
+  
+  // Saldo Interno KwanzaPay
+  internalBalance         Decimal   @default(0.00) @map("internal_balance") @db.Decimal(18, 2)
+
+  // Proteção Anti-DoS P2P (Regra de 3 ordens expiradas em 24h)
+  expiredOrders24h        Int       @default(0) @map("expired_orders_24h")
+  lpsBlockedUntil         DateTime? @map("lps_blocked_until")
+
+  createdAt               DateTime  @default(now()) @map("created_at")
+  updatedAt               DateTime  @updatedAt @map("updated_at")
+
+  lpsProfile              LpsProfile?
+  transactions            PaymentTransaction[]
+
+  @@map("users")
+}
+
+// 3. Provedores de Liquidez (LPS)
+model LpsProfile {
+  id                      String        @id @default(uuid())
+  userId                  String        @unique @map("user_id")
+  user                    User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  displayName             String        @map("display_name")
+  status                  LpsStatus     @default(ACTIVE)
+
+  // Garantia Institucional e Congelamento em Escrow
+  availableGuarantee      Decimal       @default(0.00) @map("available_guarantee") @db.Decimal(18, 2)
+  frozenGuarantee         Decimal       @default(0.00) @map("frozen_guarantee") @db.Decimal(18, 2)
+
+  // Comissões (ex: 1.00%)
+  commissionRate          Decimal       @default(1.00) @map("commission_rate") @db.Decimal(4, 2)
+  totalCommissionsEarned  Decimal       @default(0.00) @map("total_commissions_earned") @db.Decimal(18, 2)
+
+  // Coordenadas Bancárias
+  bankName                String        @map("bank_name")
+  iban                    String
+  accountHolder           String        @map("account_holder")
+  expressPhone            String?       @map("express_phone")
+  rating                  Decimal       @default(5.00) @db.Decimal(3, 2)
+  totalTradesCompleted    Int           @default(0) @map("total_trades_completed")
+
+  createdAt               DateTime      @default(now()) @map("created_at")
+  updatedAt               DateTime      @updatedAt @map("updated_at")
+
+  transactions            PaymentTransaction[]
+  guaranteeDeposits       GuaranteeDeposit[]
+
+  @@index([status, availableGuarantee])
+  @@map("lps_profiles")
+}
+
+// 4. Transações Financeiras do Gateway
+model PaymentTransaction {
+  id                    String            @id @default(uuid())
+  tradeNo               String            @unique @map("trade_no")
+  tradeToken            String            @unique @map("trade_token")
+  
+  partnerId             String            @map("partner_id")
+  partner               PartnerMerchant   @relation(fields: [partnerId], references: [partnerId])
+  outTradeNo            String            @map("out_trade_no") // Idempotência da loja
+
+  userId                String?           @map("user_id")
+  user                  User?             @relation(fields: [userId], references: [id])
+  
+  lpsId                 String?           @map("lps_id")
+  lps                   LpsProfile?       @relation(fields: [lpsId], references: [id])
+
+  amount                Decimal           @db.Decimal(18, 2)
+  currency              String            @default("AOA")
+  subject               String
+  paymentMethod         PaymentMethod?    @map("payment_method")
+  status                TransactionStatus @default(PENDING_AUTH)
+
+  // Anti-Fraude: NUP Bancário é estritamente ÚNICO
+  nup                   String?           @unique
+
+  // Comissões e taxas
+  lpsCommissionAmount   Decimal           @default(0.00) @map("lps_commission_amount") @db.Decimal(18, 2)
+  platformFeeAmount     Decimal           @default(0.00) @map("platform_fee_amount") @db.Decimal(18, 2)
+
+  // Timers & Escrow
+  timeLimitSeconds      Int               @default(300) @map("time_limit_seconds")
+  transferDeadline      DateTime?         @map("transfer_deadline")
+  verificationDeadline  DateTime?         @map("verification_deadline")
+
+  notifyUrl             String            @map("notify_url")
+  returnUrl             String            @map("return_url")
+  proofReceiptUrl       String?           @map("proof_receipt_url")
+  disputeReason         String?           @map("dispute_reason")
+
+  webhookDelivered      Boolean           @default(false) @map("webhook_delivered")
+  webhookSignature      String?           @map("webhook_signature")
+
+  paidAt                DateTime?         @map("paid_at")
+  createdAt             DateTime          @default(now()) @map("created_at")
+  updatedAt             DateTime          @updatedAt @map("updated_at")
+
+  @@unique([partnerId, outTradeNo]) // Chave composta para idempotência
+  @@index([userId, status])
+  @@index([lpsId, status])
+  @@map("payment_transactions")
+}
+
+// 5. Depósitos Institucionais de Garantia do LPS
+model GuaranteeDeposit {
+  id                    String        @id @default(uuid())
+  lpsId                 String        @map("lps_id")
+  lps                   LpsProfile    @relation(fields: [lpsId], references: [id], onDelete: Cascade)
+
+  amount                Decimal       @db.Decimal(18, 2)
+  paymentMethod         PaymentMethod @map("payment_method")
+  status                DepositStatus @default(PENDING)
+
+  institutionalIban     String        @map("institutional_iban")
+  institutionalEntity   String?       @map("institutional_entity")
+  institutionalRef      String?       @map("institutional_ref")
+
+  confirmedAt           DateTime?     @map("confirmed_at")
+  createdAt             DateTime      @default(now()) @map("created_at")
+
+  @@map("guarantee_deposits")
+}
+
+// 6. Registro de Idempotência
+model IdempotencyRecord {
+  id            String    @id @default(uuid())
+  key           String    @unique
+  endpoint      String
+  requestHash   String    @map("request_hash")
+  responseBody  Json      @map("response_body")
+  statusCode    Int       @map("status_code")
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  @@map("idempotency_records")
+}
